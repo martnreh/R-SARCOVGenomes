@@ -1,0 +1,196 @@
+---
+title: "Evidencia_2"
+author: Fernando Fabrizzio Ramirez A01551949, Adrián Martin Hernández Barrientos A01570656,
+  Ian Alexis Odria Marín A01633732
+date: "29/4/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+##  Se analizan las [secuencias](https://www.ncbi.nlm.nih.gov/labs/virus/vssi/#/virus?SeqType_s=Nucleotide&VirusLineage_ss=Wuhan%20seafood%20market%20pneumonia%20virus,%20taxid:2697049&utm_source=gquery&utm_medium=referral&utm_campaign=COVID-19&ids=MZ008566%20MW595991%20MT835383%20MT470123%20MW305250%20MT787650%20OD906774%20MW854297%20MW715081%20MW822592%20MW553298%20MT470219%20MT775827%20MT320891%20MW595909%20MW273797%20MW494424%20MT447172%20%20MT517421%20MW981442) de SARS-CoV-2 en lso [20 países con más casos](https://coronavirus.jhu.edu/map.html) reportados.
+### Verificación de Archivos.
+```{r, echo=FALSE}
+getwd()
+if(file.exists("Evidencia_2")){
+  
+    setwd(file.path("Evidencia_2"))
+    message("EXITOSO: CARPETA FUENTE ENCONTRADA")
+    message("EXITOSO:DIRECTORIO ACTUAL 'Actividad_Alinear_Sec'")
+    
+}else if(file.exists("DirectoryVerify257965.txt")){
+    
+    message("EXITOSO: Verificacion de directorio exitosa, directorio actual 'Evidencia_2' ")
+    
+}else {
+    message("ERROR: DESCOMPRIMA CARPETA 'Evidencia_2.zip' y coloquela en su directorio actual.")}
+
+
+#utilizar setwd() en caso de tener problemas con reconocimiento de archivos 
+```
+
+```{r,include=FALSE}
+if (!requireNamespace("BiocManager", quietly = TRUE)){
+    
+  install.packages("BiocManager")
+  BiocManager::install("Biostrings")
+  BiocManager::install("DECIPHER")
+  BiocManager::install("ggtree")
+n}
+
+if(!requireNamespace("ggplot2", quietly = TRUE)){
+  install.packages("ggplot2")
+}
+
+```
+
+```{r, echo=FALSE ,results='hide', message=FALSE, warning=FALSE}
+#Importar librerías y el archivo de funciones desde el archivo Funciones_Secuencias.R
+require("Biostrings")
+require("ggplot2")
+require("ape")
+require("phangorn")
+require("phytools")
+require("geiger")
+require("seqinr")
+require("adegenet")
+require("ggtree")
+require("DECIPHER")
+require("ggpubr")
+require("viridis")
+source("Funciones_Secuencias.R") #archivo de funciones propias 
+```
+
+### Longitudes de Secuencias
+```{r,echo=FALSE}
+
+Secuencias <- readDNAStringSet(file.path("Secuencias.fasta")) #see lee el archivo con las 20 secuencias
+
+longitudes <- vector() #inicializar variable longitudes que recibe las longitudes de cada secuencia
+nombres <- c("MT775827-Polonia","MW595909-Mexico","MW553298-Argentina","MW273797-Ucrania","MT835383-Brasil", "MT787650--Turquía" ,"MT517421-RepublicaCheca" ,"MT470123-Francia","MT470219-Colombia","MW305250-Rusia", "OD906774-ReinoUnido","MW854297-Italia","MW595991-India","MW494424-Perú","MW715081-España","MW981442-Sudáfrica" ,"MW822592-Alemania","MT447172-Indonesia","MT320891-Irán","MZ008566-USA") #Crear vector con los nombres de las 20 variantes
+
+
+names(Secuencias) <- nombres #agregar los nombres de las secuencias , ej. names(Secuencias[1]) = "MT775827-Polonia"
+
+Secs <- vector() #inicializar variable secs como vector que recibirá las secuencias filtradas sin caracteres ajenos a atcg  
+
+# for para obtener la longitud de cada secuencia, almacenarla en una lista y desplegar las longitudes con los nombres de las variantes
+for(i in 1:length(Secuencias)){
+   
+    
+    longitudes[i] <- length(unlist(as.vector(strsplit( (as.character(unlist(Secuencias[i]))),""))))
+    
+    
+     cat("Secuenciana", nombres[i] ,"\n" ,"Tamaño: ", longitudes[i] ,"\n", "\n" )
+}
+
+names(longitudes) <- nombres #agregar las longitudes 
+
+# for la cual utiliza la función Elimina_N del archivo de Funciones_Secuencias.R para eleminar todo lo que no sean atcg en las 20 secuencias y guardarlas en una lista la cuál se utilizirá después para muchos calculos o visualizaciones
+for(i in 1:length(Secuencias)){
+   
+    Secs[i] <- paste(Elimina_N(unlist(as.vector(strsplit( (as.character(unlist(Secuencias[i]))),"")))) , collapse="")
+}
+
+
+
+
+
+
+
+```
+### Composición de bases en las secuencias de ADN.
+```{r,echo=FALSE, message=FALSE}
+
+porcentuales <- list()
+
+# for el cual utiliza la función Porcentajes_ADN de Funciones_Secuencias.R con el cual se calcula el porcentaje de composición de atcg de cada secuencia y se almacena en una lista
+for(i in 1:length(Secuencias)){
+   
+    
+    porcentuales[[i]] <- Porcentajes_ADN(unlist(strsplit(Secs[i], "")), Print = FALSE )
+
+}
+names(porcentuales) <- nombres  #agregar porcentajes a secuencias
+
+plots <- data.frame(porcentuales[1:20]) #crear dataframe con los porcentajes de composición de las 20 secuencias 
+plots <- round(plots[,],3) #redondear cada porcentaje a solo 3 decimales
+
+#
+par(mfrow=c(1,3))  # usar función par() para mostrar las 20 gráficas con el dataframe plots creado antes con la composición de atcg en grupos de 3. 
+#función invisible() para solo mostrar el gráfico y no imprimir los valores que regresan y lapply permite aplicar funciones a cada uno de los elementos de la lista de los porcentuales
+invisible(lapply(1:20, function(i) barplot(plots[,i], names.arg = rownames(plots),beside =FALSE, ylab = "Porcentaje de Bases",legend.text =  plots[,i] ,col= c("red","blue","green","cyan"), main = colnames(plots[i]))))
+
+
+```
+
+
+
+
+
+### Matriz de distancias de árbol
+```{r,include=FALSE}
+sequence <- Secuencias # renombrar variable con las 20 secuencias
+
+sequence = OrientNucleotides(sequence); #Orientar los nucleotidos de las secuencias para que estén en misma orientación
+secAlineada = AlignSeqs(sequence); #Alinear nucleotido con nucleotido
+BrowseSeqs(secAlineada, highlight = 0, htmlFile = "visualizacions_secuencias_alineadas.html")
+writeXStringSet(secAlineada,file = "Variantes_Alineadas.fasta") #guardar la secuencia Alineada como un archivo fasta
+SecAlineada = read.alignment("Variantes_Alineadas.fasta",format = "fasta"); #leer el archivo fasta de la secuencia alineada
+distancia = dist.alignment(SecAlineada,matrix = "similarity"); #crear matriz de distancia para la secuencias alineadas
+
+
+```
+
+```{r, echo=FALSE}
+#mostrar la matriz con colores dependiendo de la distancia de similitud entre cada secuencia. Entre mayor oscuro el colo, mayor es la distancia entre secuencias.
+temp = as.data.frame(as.matrix(distancia)) 
+table.paint(temp,cleg = 0,clabel.row = .5, clabel.col = 0.5)+
+scale_color_viridis();
+
+```
+
+
+
+
+### Liga para ver [Secuencias Alineadas](visualizacions_secuencias_alineadas.html) **(es necesario descargar Evidencia_2.zip para acc )**
+### Similaridad en 8 secuencias Variantes de SARS COVID
+
+```{r,echo=FALSE}
+# crear arbol filogenético con las distancias de las 20 secuencias
+h_cluster = hclust(distancia,method = "average", members = NULL)  
+plot(h_cluster,cex = 0.6) 
+
+```
+
+
+
+### Interpretaciones y Conclusiones.
+
+| Uno pensaría al ver las tablas que la diferencia entre las variantes de SARS cov 2 de cada país es mínima, ya que al  observar el porcentaje de composición de las bases  adenina(A),timina (T), citosina (C), guanina (G) de cada secuencia ADN de cada variante, se ve que tienen variaciones muy pequeñas. Por ejemplo, los porcentajes de composición en Estados Unidos, el cuál es el país con más casos constantes de contagio del virus es de A - 29.87% , T - 32.15% , C - 19.59% y  G- 18.37% . Si lo comparamos con la posición 20 en la misma lista de países,  Sudáfrica  A - 29.93% , T - 32.15% , C - 19.59% , G - 18.32% , podemos notar que la composición de las secuencias de Estados Unidos y Sudáfrica es muy similar al igual que sus longitudes de ADN totales con una diferencia (29849-29848) de 1. 
+
+
+| Sin embargo se debe recordar que el comportamiento de un virus no solo  se dicta por su composición de bases nitrogenadas sino también por su estructura, es decir su composición de aminoácidos. Recordemos que la variación del orden de los codones son las mismas bases pero distintos aminoácidos. Gracias a las diferentes librerías de R que hacen cálculos complejos de secuencias, pudimos obtener y visualizar una matriz que relaciona las similitudes y diferencias entre las secuencias con distancias. Finalmente, con la visualización del árbol filogenético, el cual se utiliza comúnmente para mostrar relaciones evolutivas, se hizo notar la contundente diferencia entre de Estados Unidos y Brasil, así como las similitudes y diferencias entre ciertas variantes y muestras. Impactante es el notar que Estados Unidos y Brasil perteneciendo al mismo continente, sus secuencias de ADN son las menos similares. Por otra parte se observa una distancia casi mínima entre las muestras de México y Argentina, es decir el ADN de ambas variantes es muy similar en contraste a las comparativas de variantes en el mundo.  
+
+
+### Referencias
+
+
+| Todas las secuencias Genéticas fueron extraidas desde [NCBI Virus](https://www.ncbi.nlm.nih.gov/labs/virus/vssi/#/virus?SeqType_s=Nucleotide&VirusLineage_ss=Wuhan%20seafood%20market%20pneumonia%20virus,%20taxid:2697049&utm_source=gquery&utm_medium=referral&utm_campaign=COVID-19&ids=MZ008566%20MW595991%20MT835383%20MT470123%20MW305250%20MT787650%20OD906774%20MW854297%20MW715081%20MW822592%20MW553298%20MT470219%20MT775827%20MT320891%20MW595909%20MW273797%20MW494424%20MT447172%20%20MT517421%20MW981442).
+
+
+
+* Weiss SR, Leibowitz JL. Coronavirus pathogenesis. Adv Virus Res. 2011;81:85-164. doi: 10.1016/B978-0-12-385885-6.00009-2. PMID: 22094080; PMCID: PMC7149603.
+
+* Manuales MSD. (2021, febrero). Coronavirus y síndromes respiratorios agudos (COVID-19, MERS y SARS). Manual MSD versión para profesionales. [https://www.msdmanuals.com/es/professional/enfermedades-infecciosas/virus-respiratorios/coronavirus-y-s%C3%ADndromes-respiratorios-agudos-covid-19-mers-y-sars](https://www.msdmanuals.com/es/professional/enfermedades-infecciosas/virus-respiratorios/coronavirus-y-s%C3%ADndromes-respiratorios-agudos-covid-19-mers-y-sars)
+
+* Razanajatovo NH, Nomenjanahary LA, Wilkinson DA, Razafimanahaka JH, Goodman SM, Jenkins RK, Jones JP, Heraud JM. Detection of new genetic variants of Betacoronaviruses in Endemic Frugivorous Bats of Madagascar. Virol J. 2015 Mar 12;12:42. doi: 10.1186/s12985-015-0271-y. PMID: 25888853; PMCID: PMC4404003.
+
+* Wang LF, Eaton BT. Bats, civets and the emergence of SARS. Curr Top Microbiol Immunol. 2007;315:325-44. doi: 10.1007/978-3-540-70962-6_13. PMID: 17848070; PMCID: PMC7120088.
+
+* Abdelrahman, Z. (2020). Comparative Review of SARS-CoV-2, SARS-CoV, MERS-CoV, and Influenza A Respiratory Viruses. Frontiers. [https://www.frontiersin.org/articles/10.3389/fimmu.2020.552909/full#B55](https://www.frontiersin.org/articles/10.3389/fimmu.2020.552909/full#B55)
+
+* Abdelrahman, Z. (2020b, septiembre 11). Comparative Review of SARS-CoV-* 2, SARS-CoV, MERS-CoV, and Influenza A Respiratory Viruses. PubMed. https://pubmed.ncbi.nlm.nih.gov/33013925/
